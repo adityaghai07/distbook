@@ -49,13 +49,13 @@ x = torch.rand(BATCH_SIZE, HIDDEN_DIM)
 y = torch.randint(2, (BATCH_SIZE,))
 
 if cuda:
-    x.to(torch.cuda.device(0))
-    y.to(torch.cuda.device(1))
+    x = x.cuda(0)
+    y = y.cuda(1)
 
 
 if cuda:
-    model1 = Part1(HIDDEN_DIM, LAYERS).to(torch.cuda.device(0))
-    model2 = Part2(HIDDEN_DIM, LAYERS).to(torch.cuda.device(1))
+    model1 = Part1(HIDDEN_DIM, LAYERS).cuda(0)
+    model2 = Part2(HIDDEN_DIM, LAYERS).cuda(1)
 
 else:
     model1 = Part1(HIDDEN_DIM, LAYERS)
