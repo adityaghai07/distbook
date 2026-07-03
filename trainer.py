@@ -1,12 +1,13 @@
 import torch
 from baseline_comms import PipelineComms, init_distributed
-from pp_schedulers import naive_pp_step
+from pp_schedulers import gpipe_pipeline_step, naive_pp_step
 from sharded_mlp import shardedMLP
 
 BATCH_SIZE = 32
 HIDDEN_DIM = 128
 LAYERS = 16
 STEPS = 50
+chunks = 4
 
 # setup distributed
 rank, world_size, device = init_distributed()
@@ -39,9 +40,12 @@ model.train()
 for step in range(STEPS):
     optimizer.zero_grad()
     if rank == world_size - 1:
-        loss = naive_pp_step(model, comms, inputs, y, HIDDEN_DIM, device)
+        # loss = naive_pp_step(model, comms, inputs, y, HIDDEN_DIM, device)
+        loss = gpipe_pipeline_step(model, comms, inputs, y, HIDDEN_DIM, chunks, device)
+
     else:
-        naive_pp_step(model, comms, inputs, y, HIDDEN_DIM, device)
+        # naive_pp_step(model, comms, inputs, y, HIDDEN_DIM, device)
+        gpipe_pipeline_step(model, comms, inputs, y, HIDDEN_DIM, chunks, device)
 
     optimizer.step()
 

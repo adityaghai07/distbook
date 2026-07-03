@@ -3,7 +3,9 @@ from baseline_comms import PipelineComms
 from sharded_mlp import shardedMLP
 
 
-def naive_pp_step(model, comms, batch, targets, hidden_dim, device):
+def naive_pp_step(
+    model: shardedMLP, comms: PipelineComms, batch, targets, hidden_dim, device
+):
     is_first = comms.rank == 0
     is_last = comms.rank == comms.world_size - 1
 
@@ -30,3 +32,60 @@ def naive_pp_step(model, comms, batch, targets, hidden_dim, device):
 
     if is_last:
         return loss
+
+
+def gpipe_pipeline_step(
+    model: shardedMLP, comms: PipelineComms, batch, targets, hidden_dim, chunks, device
+):
+
+    is_first = comms.rank == 0
+    is_last = comms.rank == comms.world_size - 1
+
+    if is_first:
+        microbatches = torch.chunk(batch, chunks)
+    if is_last:
+        microtargets = targets.chunk(chunks)
+
+    input_buffer = []
+    output_buffer = []
+
+    for i in range(chunks):
+        if is_first:
+            inputs = microbatches[i]
+        else:
+            # mini_bs = microbatches[i].shape[0]
+            inputs = comms.recv_forward(
+                (batch // chunks, hidden_dim), device, dtype=torch.float32
+            )
+            inputs.requires_grad = True
+        if is_last:
+            outs = model(inputs, microtargets[i])
+        else:
+            outs = model(inputs)
+
+        if not is_last:
+            comms.send_forward(outs.detach())
+
+        input_buffer.append(inputs)
+        output_buffer.append(outs)
+
+    total_loss = torch.zeros(outs.shape)
+
+    for i in range(chunks):
+        inputs = input_buffer[i]
+        outs = output_buffer[i]
+
+        if is_last:
+            loss = outs
+            loss.backward()
+            total_loss += loss
+        else:
+            shape = outs.shape
+            grads = comms.recv_backward(shape, device, dtype=torch.float32)
+            outs.backward(grads)
+        if not is_first:
+            comms.send_backward(inputs.grad)
+
+    if is_last:
+        return total_loss
+        # or total_loss / chunks
