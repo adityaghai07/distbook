@@ -69,14 +69,14 @@ def gpipe_pipeline_step(
         input_buffer.append(inputs)
         output_buffer.append(outs)
 
-    total_loss = torch.zeros(outs.shape)
+    total_loss = torch.zeros(1, device=device)
 
     for i in range(chunks):
         inputs = input_buffer[i]
         outs = output_buffer[i]
 
         if is_last:
-            loss = outs
+            loss = outs / chunks
             loss.backward()
             total_loss += loss
         else:
@@ -88,4 +88,3 @@ def gpipe_pipeline_step(
 
     if is_last:
         return total_loss
-        # or total_loss / chunks
