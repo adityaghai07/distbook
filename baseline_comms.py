@@ -39,6 +39,9 @@ class PipelineComms:
     def send_forward(self, tensor):
         dist.send(tensor, dst=self.next_rank)
 
+    def isend_forward(self, tensor):
+        return dist.isend(tensor, dst=self.next_rank)
+
     def recv_forward(self, shape, device, dtype):
 
         tensor = torch.zeros(shape, device=device, dtype=torch.float32)
