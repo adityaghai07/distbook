@@ -44,7 +44,7 @@ def gpipe_pipeline_step(
     if is_first:
         microbatches = torch.chunk(batch, chunks)
     if is_last:
-        microtargets = targets.chunk(chunks)
+        microtargets = torch.chunk(targets, chunks)
 
     input_buffer = []
     output_buffer = []
