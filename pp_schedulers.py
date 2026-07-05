@@ -88,3 +88,78 @@ def gpipe_pipeline_step(
 
     if is_last:
         return total_loss
+
+
+def onef_oneb_pipeline_step(
+    model: shardedMLP, comms: PipelineComms, batch, targets, hidden_dim, chunks, device
+):
+
+    is_first = comms.rank == 0
+    is_last = comms.rank == comms.world_size - 1
+
+    warmups = comms.world_size - comms.rank - 1
+    onefoneb_steps = chunks - warmups
+
+    input_buffer = [None] * chunks
+    output_buffer = [None] * chunks
+    async_reqs = []
+
+    if is_first:
+        micro_batches = torch.chunk(batch, chunks)
+    if is_last:
+        micro_targets = torch.chunk(targets, chunks)
+        total_loss = torch.zeros(1, device=device)
+
+    def forward(idx):
+        if is_first:
+            inputs = micro_batches[idx]
+        else:
+            shape = (batch // chunks, hidden_dim)
+            inputs = comms.recv_forward(shape, device, dtype=torch.float32)
+            inputs.requires_grad = True
+
+        if is_last:
+            outs = model(inputs, micro_targets[idx])
+        else:
+            outs = model(inputs)
+            req = comms.isend_forward(outs.detach())
+            async_reqs.append(req)
+
+        input_buffer[idx] = inputs
+        output_buffer[idx] = outs
+
+    def back(idx):
+
+        inputs = input_buffer[idx]
+        outs = output_buffer[idx]
+
+        if is_last:
+            loss = outs / chunks
+            loss.backward()
+        else:
+            shape = outs.shape
+            grads = comms.recv_backward(shape, device, dtype=torch.float32)
+            outs.backward(grads)
+        if not is_first:
+            comms.send_backward(inputs.grad)
+
+        if is_last:
+            return loss
+
+    for i in range(warmups):
+        forward(i)
+
+    for i in range(onefoneb_steps):
+        forward(i + warmups)
+        res = back(i)
+        if is_last:
+            total_loss += res
+
+    for i in range(warmups):
+        res = back(onefoneb_steps + i)
+
+    for r in async_reqs:
+        r.wait()
+
+    if is_last:
+        return total_loss
