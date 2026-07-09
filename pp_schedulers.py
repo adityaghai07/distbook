@@ -1,3 +1,5 @@
+from collections import deque
+
 import torch
 from baseline_comms import PipelineComms
 from sharded_mlp import shardedMLP
@@ -160,6 +162,58 @@ def onef_oneb_pipeline_step(
 
     for r in async_reqs:
         r.wait()
+
+    if is_last:
+        return total_loss
+
+
+def zb1p_pipeline_step(
+    model: shardedMLP, comms: PipelineComms, batch, targets, hidden_dim, chunks, device
+):
+    is_first = comms.rank == 0
+    is_last = comms.rank == comms.world_size - 1
+
+    input_buffer = [None] * chunks
+    output_buffer = [None] * chunks
+
+    async_req = []
+    w_queue = deque()
+
+    warmups = comms.world_size - comms.rank - 1
+    steady_steps = chunks - warmups
+
+    if is_first:
+        micro_batches = torch.chunk(batch, chunks)
+    if is_last:
+        micro_targets = torch.chunk(targets, chunks)
+        total_loss = torch.zeros(1, device=device)
+
+    def forward():
+        pass
+
+    def back_input():
+        pass
+
+    def back_weight():
+        pass
+
+    for i in range(warmups):
+        forward(i)
+
+    for i in range(steady_steps):
+        forward(warmups + i)
+        res = back_input(i)
+        if is_last and res is not None:
+            total_loss += res
+        back_weight()
+
+    for i in range(warmups):
+        res = back_input(steady_steps + i)
+        if is_last and res is not None:
+            total_loss += res
+
+    while w_queue:
+        back_weight()
 
     if is_last:
         return total_loss
