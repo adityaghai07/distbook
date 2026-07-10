@@ -8,6 +8,9 @@ Scratch implementations of distributed training techniques, built from the groun
 
 Inspired by and referencing [micropp](https://github.com/kiankyars/micropp) by [@kiankyars](https://github.com/kiankyars).
 
+<img width="1774" height="887" alt="image" src="https://github.com/user-attachments/assets/da2225ab-6d27-438d-879f-dd29fb117f53" />
+
+
 ## Implemented
 
 - **Naive Pipeline Parallelism** — the simplest possible split-and-forward baseline
