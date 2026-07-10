@@ -167,6 +167,7 @@ def onef_oneb_pipeline_step(
         return total_loss
 
 
+# only difference btw 1f1p and this is handling dL/dx and dL/dw separately.
 def zb1p_pipeline_step(
     model: shardedMLP, comms: PipelineComms, batch, targets, hidden_dim, chunks, device
 ):
@@ -188,14 +189,57 @@ def zb1p_pipeline_step(
         micro_targets = torch.chunk(targets, chunks)
         total_loss = torch.zeros(1, device=device)
 
-    def forward():
-        pass
+    def forward(idx):
+        if is_first:
+            inputs = micro_batches[idx]
+        else:
+            shape = (batch // chunks, hidden_dim)
+            inputs = comms.recv_forward(shape, device=device, dtype=torch.float32)
+            inputs.requires_grad = True
 
-    def back_input():
-        pass
+        if is_last:
+            outs = model(inputs, micro_targets[idx])
+        else:
+            outs = model(inputs)
+            # comms.send_forward(outs.detach())
+            req = comms.isend_forward(outs.detach())
+            async_req.append(req)
+
+        input_buffer[idx] = inputs
+        output_buffer[idx] = outs
+
+    def back_input(idx):
+        inputs = input_buffer[idx]
+        outs = output_buffer[idx]
+        if is_last:
+            loss = outs / chunks
+            (input_grad,) = torch.autograd.grad(loss, inputs, retain_graph=True)
+            comms.send_backward(input_grad)
+            grad_out = None
+            node = loss
+            result = loss
+        else:
+            grad_out = comms.recv_backward(outs.shape, device, dtype=torch.float32)
+            node = outs
+            result = None
+            if not is_first:
+                (input_grad,) = torch.autograd.grad(outs, inputs, grad_outputs=grad_out, retain_graph=True)
+                comms.send_backward(input_grad)
+        w_queue.append((node, grad_out))
+        return result
 
     def back_weight():
-        pass
+        if not w_queue:
+            return
+        else:
+            node, grad_out = w_queue.popleft()
+            params = [p for p in model.parameters() if p.requires_grad]
+            w_grads = torch.autograd.grad(node, params, grad_outputs=grad_out, retain_graph=False, allow_unused=True)
+
+            for p, g in zip(params, w_grads):
+                if g is None:
+                    continue
+                p.grad = g if p.grad is None else p.grad + g
 
     for i in range(warmups):
         forward(i)
@@ -214,6 +258,9 @@ def zb1p_pipeline_step(
 
     while w_queue:
         back_weight()
+
+    for r in async_req:
+        r.wait()
 
     if is_last:
         return total_loss
