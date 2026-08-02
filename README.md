@@ -35,6 +35,10 @@ distbook/
 ## Running
 
 ```bash
+pip install -r requirements.txt
+```
+
+```bash
 torchrun --nproc_per_node=4 trainer.py
 ```
 
