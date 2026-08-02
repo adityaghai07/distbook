@@ -39,6 +39,8 @@ class dualpipevMLP(nn.Module):
 
         l = self.up(x)
 
-        if self.rank != 0 and targets is not None:
-            l = self.loss_fn(x, targets)
+        # rank 0's up stage is the final stage, so it is the one that has a
+        # 2-class head and computes the loss.
+        if self.rank == 0 and targets is not None:
+            l = self.loss_fn(l, targets)
         return l

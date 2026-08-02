@@ -52,7 +52,7 @@ class dualpipevComms:
         dist.send(tensor, dst=self._upstream(phase), tag = 10 + phase)
 
     def isend_backward(self, tensor, phase):
-        return dist.send(tensor, dst=self._upstream(phase), tag = 10 + phase)
+        return dist.isend(tensor, dst=self._upstream(phase), tag = 10 + phase)
 
     def recv_backward(self, shape, device, dtype, phase):
 
