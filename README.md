@@ -44,7 +44,7 @@ Swap which scheduler runs by editing the call in `trainer.py`.
 
 With `world_size` ranks there are `2 * world_size` stages. Rank `r` holds stage `r`
 on the way down and stage `2 * world_size - 1 - r` on the way up, so **rank 0 holds
-both the first and the last stage** — the inputs, the targets, and the loss all live
+both the first and the last stage**, the inputs, the targets, and the loss all live
 there, not on the last rank.
 
 `chunks` must be at least `2 * world_size`. Rank 0 runs the most warmup forwards, and
