@@ -1,10 +1,10 @@
 import torch
-# from baseline_comms import PipelineComms, init_distributed
-from dualpipev_comms import dualpipevComms, init_distributed
-# from pp_schedulers import gpipe_pipeline_step, naive_pp_step, onef_oneb_pipeline_step, zb1p_pipeline_step
-from dualpipev_scheduler import dualpipev_pipeline_step
-from dualpipev_mlp import dualpipevMLP
-# from sharded_mlp import shardedMLP
+# from comms.baseline_comms import PipelineComms, init_distributed
+from comms.dualpipev_comms import dualpipevComms, init_distributed
+# from scheduler_scripts.pp_schedulers import gpipe_pipeline_step, naive_pp_step, onef_oneb_pipeline_step, zb1p_pipeline_step
+from scheduler_scripts.dualpipev_scheduler import dualpipev_pipeline_step
+from models.dualpipev_mlp import dualpipevMLP
+# from models.sharded_mlp import shardedMLP
 
 BATCH_SIZE = 32
 HIDDEN_DIM = 128
@@ -32,7 +32,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 # load data
 # in dualpipeV rank 0 holds both the first stage and the last stage, so it owns
-# the inputs *and* the targets/loss. other ranks only need the batch size.
+# the inputs and the loss. Other ranks only need the batch size.
 if rank == 0:
     inputs = torch.rand(BATCH_SIZE, HIDDEN_DIM).to(device)
     y = torch.randint(0, 2, (BATCH_SIZE,)).to(device)

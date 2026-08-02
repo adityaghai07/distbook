@@ -1,8 +1,8 @@
 from collections import deque
 
 import torch
-from baseline_comms import PipelineComms
-from sharded_mlp import shardedMLP
+from comms.baseline_comms import PipelineComms
+from models.sharded_mlp import shardedMLP
 
 
 def naive_pp_step(
