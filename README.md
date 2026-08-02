@@ -13,11 +13,11 @@ Inspired by and referencing [micropp](https://github.com/kiankyars/micropp) by [
 
 ## Implemented
 
-- **Naive Pipeline Parallelism** — the simplest possible split-and-forward baseline
-- **GPipe** — micro-batching with a flush-based warmup/cooldown schedule
-- **1F1B** — interleaved forward/backward steady-state scheduling to cut bubble time
-- **ZB1P** — zero-bubble scheduling with decoupled input/weight backward passes
-- **DualPipeV** — the V-shaped variant of DualPipe: each rank holds two stages, so the pipeline runs down the ranks and back up again
+- **Naive Pipeline Parallelism** : the simplest possible split-and-forward baseline
+- **GPipe** : micro-batching with a flush-based warmup/cooldown schedule
+- **1F1B** : interleaved forward/backward steady-state scheduling to cut bubble time
+- **ZB1P** : zero-bubble scheduling with decoupled input/weight backward passes
+- **DualPipeV** : the V-shaped variant of DualPipe: each rank holds two stages, so the pipeline runs down the ranks and back up again
 
 ## Structure
 
@@ -52,7 +52,7 @@ with fewer micro-batches than that it runs out of them mid-warmup.
 
 ## Why
 
-Most pipeline parallelism explanations stop at diagrams. This repo is about implementing the actual comms and scheduling logic — including the annoying bugs (deadlocks from mismatched send/recv, autograd graphs that need to stay alive across microbatches, decoupled input-grad vs weight-grad passes) that diagrams don't show you.
+Most pipeline parallelism explanations stop at diagrams. This repo is about implementing the actual comms and scheduling logic, including the annoying bugs (deadlocks from mismatched send/recv, autograd graphs that need to stay alive across microbatches, decoupled input-grad vs weight-grad passes) that diagrams don't show you.
 
 A schedule that runs without crashing can still compute wrong gradients, so the way to
 check one is to compare against plain autograd: build the same stages as a single
